@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+        <meta charset="utf-8">
+        <title>Query Response Page</title>
+        <link rel="stylesheet" href="{{url_for('static',filename='styles/querypage.css')}}">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/k7ujTnHg4CGR2D7kSs0v4LLanw2qksYuRlEzO+tcaEPQogQ0KaoGN26/zrn20ImR1DfuLWnOo7aBA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+        <!-- Header -->
+        <div class="bg-image">
+                <div class="bg-text">
+                <h1 style="font-size:50px">CS527 DATABASE FOR DATA SCIENCE PROJECT</h1>
+                <p>Team 8</p>
+                </div>
+        </div>;''
+
+        <!-- Diagram & Query Section-->
+        <div class="query-section">
+                <div class="img_container">
+                        <button class="btn" onclick="toggleimg()">Instacart ER-diagram</button>
+                        <img class="hide" id="er-diagram" src="{{url_for('static',filename='images/instacart_er.png')}}" alt="er_diagram">
+                </div>
+                <div class="container">
+                        <form method="POST" id="queryform">
+                                <label style="color: #4CAF50;"><b>DBMS Type:</b></label><br><br>
+
+                                <input type="radio" id="mysql" name="dbms" value="MySQL">
+                                <label class="lb1" for="mysql">MySQL</label>
+
+                                <input type="radio" id="redshift" name="dbms" value="RedShift">
+                                <label class="lb1" for="redshift">RedShift</label>
+
+                                <input type="radio" id="mssql" name="dbms" value="MSSQL">
+                                <label class="lb1" for="mssql">MSSQL</label>
+
+                                <input type="radio" id="mongodb" name="dbms" value="MongoDB">
+                                <label class="lb1" for="mongodb">MongoDB</label><br><br><br><br>
+
+                                <label style="color: #4CAF50;" for="subject"><b>Input</b></label>
+                                <textarea id="subject" name="subject" placeholder="Enter your SQL Query..." style="height:200px"></textarea><br>
+
+                                <input type="submit" value="Submit">
+                                <input type="reset" value="Reset" onclick="resetclick()"><br><br>
+                        </form>
+                </div>
+        </div>
+
+        <!-- Output Section -->
+        <div class="output">
+                <span>
+                        <h3><b>Output</b></h3>
+                        <a href="#" onclick="download_table_as_csv('mytable');"><button class="btn small"><i class="fa fa-download"></i></button></a>
+                </span>
+                <p style="color: blue" id="loading"></p>
+                <p style="color: red" id="error"></p>
+                <p id="timeelapsed"></p>
+                <table border="1" style="margin-left:auto;margin-right: auto;" id="mytable"></table>
+        </div>
+
+        <script>
+                const toggleimg = () => {
+                        let image = document.getElementById("er-diagram")
+
+                        if(image.className == "hide") {
+                                image.className = "show"
+                        } else {
+                                image.className = "hide"
+                        }
+                }
+                const resetclick = () => {
+                        document.getElementById("timeelapsed").innerText = ""
+                        document.getElementById("mytable").innerHTML = ""
+                        document.getElementById("error").innerText = ""
+                }
+                const submitquery = async (e) => {
+                        e.preventDefault();
+
+                        var mysql = document.getElementById("mysql")
+                        var redshift = document.getElementById("redshift")
+                        var mssql = document.getElementById("mssql")
+                        var mongodb = document.getElementById("mongodb")
+
+                        if (mysql.checked == false && redshift.checked == false && mssql.checked == false && mongodb.checked == false) {
+                                document.getElementById("error").innerText = "Please Select a Database";
+                                return false;
+                        }
+
+                        var subject = document.getElementById("subject")
+
+                        if (subject.value == "") {
+                                document.getElementById("error").innerText = "Please Enter a Query";
+                                return false;
+                        }
+
+                        <!--document.getElementById("error").innerText = "";-->
+                        document.getElementById("loading").innerText = "Loading...";
+
+                        try {
+                                let dbms;
+                                if (mysql.checked) dbms = 'MySQL';
+                                else if (redshift.checked) dbms = 'RedShift';
+                                else if (mssql.checked) dbms = 'MSSQL';
+                                else dbms = 'MongoDB';
+
+                                var data = JSON.stringify({
+                                                dbms,
+                                                subject: subject.value
+                                        })
+                                const response = await fetch(window.location.protocol + '//' + window.location.host + "/submitquery", {
+                                        method: "POST",
+                                        headers: {
+                                                'Content-Type': 'application/json'
+                                        },
+                                        body: data
+                                })
+
+                                const json = await response.json();
+                                const {error_returned, output, time_elapsed} = json;
+                                document.getElementById("error").innerText = `${error_returned}`
+                                document.getElementById("timeelapsed").innerText = `Time Elapsed: ${time_elapsed} seconds`
+                                createOutputTable(output)
+                                document.getElementById("loading").innerText = "";
+                        } catch (error) {
+                                document.getElementById("loading").innerText = "";
+                                document.getElementById("error").innerText = "An Error occured! Try again";
+                                document.getElementById("timeelapsed").innerText = ""
+                                document.getElementById("mytable").innerHTML = ""
+                        }
+
+                        return false;
+                }
+
+                const createOutputTable = (output) => {
+                        var mytable = document.getElementById("mytable");
+                        mytable.innerHTML = "";
+                        for(let i=0; i<output.length; i++) {
+                                let row = output[i];
+                                var tr = document.createElement("tr");
+                                for(let j=0; j<row.length; j++) {
+                                        var td = document.createElement("td");
+                                        td.innerText = row[j];
+                                        tr.appendChild(td)
+                                }
+                                mytable.appendChild(tr);
+                        }
+                }
+
+                document.getElementById("queryform").onsubmit = submitquery;
+        </script>
+    <script>
+			function download_table_as_csv(mytable, separator = ',') {
+			// Select rows from table_id
+			var rows = document.querySelectorAll('table#' + mytable + ' tr');
+			// Construct csv
+			var csv = [];
+			for (var i = 0; i < rows.length; i++) {
+				var row = [], cols = rows[i].querySelectorAll('td, th');
+				for (var j = 0; j < cols.length; j++) {
+					var data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, '').replace(/(\s\s)/gm, ' ')
+					data = data.replace(/"/g, '""');
+					row.push('"' + data + '"');
+				}
+				csv.push(row.join(separator));
+			}
+			var csv_string = csv.join('\n');
+			// Download it
+			var filename = 'export_' + mytable + '_' + new Date().toLocaleDateString() + '.csv';
+			var link = document.createElement('a');
+			link.style.display = 'none';
+			link.setAttribute('target', '_blank');
+			link.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv_string));
+			link.setAttribute('download', filename);
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+		}
+		</script>
+</body>
+<footer>
+  <p>Developed By: Team - 8</p>
+</footer> 
+</html>
